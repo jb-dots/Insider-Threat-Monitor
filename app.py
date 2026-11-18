@@ -39,6 +39,7 @@ from db import (
     get_org_audit_logs,
     get_org_events_df,
     get_org_pending_invites,
+    get_org_portal_url,
     get_org_rules,
     get_org_staff,
     get_platform_audit_logs,
@@ -61,6 +62,7 @@ from db import (
     save_org_alerts,
     save_org_events,
     save_org_rule,
+    set_org_portal_url,
     touch_session,
     update_alert_review,
     update_incomplete_organization,
@@ -967,7 +969,7 @@ def render_live_events_page(org_id: str):
         description="Real-time sign-ins and file activity recorded from this computer.",
     )
 
-    c_toggle, c_act, c_out, c_tech = st.columns([1.2, 1, 1, 1])
+    c_toggle, c_act, c_out, c_tech, c_sync = st.columns([1.1, 1, 1, 1, 0.9])
     with c_toggle:
         auto_refresh = st.toggle("Auto-refresh (every 5s)", value=True, key="live_events_auto_refresh")
     with c_act:
@@ -984,6 +986,9 @@ def render_live_events_page(org_id: str):
         )
     with c_tech:
         show_technical = st.checkbox("Show technical details", value=False, key="live_events_tech")
+    with c_sync:
+        st.write("")
+        manual_sync = st.button("🔄 Sync Portal", use_container_width=True, key="live_events_sync_btn")
 
     action_map = {"Sign-Ins": "login", "File Reads": "read", "File Deletions": "delete"}
     outcome_map = {"Allowed": "success", "Blocked": "denied"}
@@ -991,6 +996,16 @@ def render_live_events_page(org_id: str):
     render_html('<div style="height:12px;"></div>')
 
     def _render_live_body():
+        if auto_refresh or manual_sync:
+            try:
+                from collector import collect_company_portal_once, load_collector_config
+                c_cfg = load_collector_config()
+                org_portal_url = get_org_portal_url(org_id) or c_cfg.get("company_portal_url", "")
+                if c_cfg.get("enable_company_portal") and (org_portal_url or c_cfg["company_portal_log_path"].exists()):
+                    collect_company_portal_once(org_id=org_id, run_detector=True, portal_url=org_portal_url)
+            except Exception:
+                pass
+
         df_win = get_org_events_df(org_id, source="windows_event_log")
         df_portal = get_org_events_df(org_id, source="company_portal")
         frames = [d for d in (df_portal, df_win) if not d.empty]
@@ -1774,6 +1789,19 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
                         st.session_state["setup_data_choice"] = opt_key
                         st.rerun()
 
+            portal_url_input = ""
+            if choice == "portal":
+                st.write("")
+                default_portal_url = os.environ.get("COMPANY_PORTAL_URL", "")
+                portal_url_input = st.text_input(
+                    "Company Portal URL (or leave blank for local file)",
+                    value=st.session_state.get("setup_portal_url", default_portal_url),
+                    placeholder="https://dunmore-portal-sample-web.onrender.com",
+                    help="Paste your deployed company portal URL (e.g. https://dunmore-portal-sample-web.onrender.com) or full /app/static/company_audit.jsonl URL.",
+                    key="setup_portal_url_input",
+                )
+                st.session_state["setup_portal_url"] = portal_url_input
+
             st.write("")
             col_back, col_finish = st.columns([1, 2])
             with col_back:
@@ -1816,10 +1844,18 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
                             with st.spinner("Connecting company portal audit log and running initial detection..."):
                                 from collector import collect_company_portal_once, load_collector_config
                                 cfg = load_collector_config()
+                                raw_url = (portal_url_input or "").strip()
+                                if raw_url and not raw_url.startswith(("http://", "https://")):
+                                    raw_url = "https://" + raw_url
+                                if raw_url and not raw_url.endswith(".jsonl"):
+                                    raw_url = raw_url.rstrip("/") + "/app/static/company_audit.jsonl"
+                                if raw_url:
+                                    set_org_portal_url(target_org_id, raw_url)
                                 collect_company_portal_once(
                                     org_id=target_org_id,
                                     log_path=cfg["company_portal_log_path"],
                                     run_detector=True,
+                                    portal_url=raw_url or None,
                                 )
 
                         data_choice_label = {

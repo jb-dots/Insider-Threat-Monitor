@@ -18,6 +18,7 @@ from db import (
     filter_new_alerts,
     get_last_record_id,
     get_org_events_df,
+    get_org_portal_url,
     get_org_rules,
     get_org_salt,
     ingest_event,
@@ -490,7 +491,7 @@ def collect_company_portal_once(
     """Read new lines from company_audit.jsonl (URL or local file), ingest into DB, and optionally run detection."""
     cfg = load_collector_config()
     if portal_url is None:
-        portal_url = cfg.get("company_portal_url", "")
+        portal_url = get_org_portal_url(org_id) or cfg.get("company_portal_url", "")
     if log_path is None:
         log_path = cfg["company_portal_log_path"]
 
@@ -637,7 +638,6 @@ def run_poll_loop(cfg: Dict[str, Any]) -> None:
                     org_id=org_id,
                     log_path=cfg["company_portal_log_path"],
                     run_detector=True,
-                    portal_url=cfg.get("company_portal_url", ""),
                 )
                 if ingested_portal > 0:
                     portal_last_line = get_last_record_id(org_id, source="company_portal")

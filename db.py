@@ -84,6 +84,7 @@ class Organization(Base):
     # Unused legacy column kept for non-destructive backward compatibility
     plan_id = Column(String(50), ForeignKey("plans.plan_id"), nullable=True, default="")
     setup_completed = Column(Boolean, nullable=False, default=False)
+    portal_url = Column(String(500), nullable=True, default="")
     status = Column(String(50), nullable=False, default="active")  # active, suspended, closed
     org_salt = Column(String(128), nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -309,6 +310,11 @@ def init_db() -> None:
             with engine.begin() as conn:
                 conn.execute(
                     text("ALTER TABLE organizations ADD COLUMN setup_completed BOOLEAN NOT NULL DEFAULT 1")
+                )
+        if "portal_url" not in org_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE organizations ADD COLUMN portal_url VARCHAR(500) DEFAULT ''")
                 )
     if "events" in inspector.get_table_names():
         event_cols = {c["name"] for c in inspector.get_columns("events")}
@@ -1989,6 +1995,22 @@ def get_org_events_df(org_id: str, source: Optional[str] = None) -> pd.DataFrame
                 for r in rows
             ]
         )
+
+
+def get_org_portal_url(org_id: str) -> str:
+    """Return the configured company portal audit URL for an organization (or empty string)."""
+    with get_session() as session:
+        org = session.query(Organization).filter(Organization.org_id == org_id).first()
+        return str(org.portal_url or "").strip() if org else ""
+
+
+def set_org_portal_url(org_id: str, portal_url: str) -> None:
+    """Persist the company portal audit URL for an organization."""
+    with get_session() as session:
+        org = session.query(Organization).filter(Organization.org_id == org_id).first()
+        if org:
+            org.portal_url = str(portal_url or "").strip()[:500]
+            session.commit()
 
 
 def filter_new_alerts(org_id: str, alerts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
