@@ -596,8 +596,27 @@ def run_poll_loop(cfg: Dict[str, Any]) -> None:
 
     org_salt = get_org_salt(org_id)
     if not org_salt:
-        print(f"ERROR: Organization '{org_id}' not found in database.")
-        sys.exit(1)
+        print(
+            f"Organization '{org_id}' not found in database yet. "
+            "Waiting for an organization to complete setup..."
+        )
+        explicit_env_org = bool(os.environ.get("COLLECTOR_ORG_ID"))
+        from db import Organization, get_session
+        while not org_salt:
+            time.sleep(poll_interval)
+            org_salt = get_org_salt(org_id)
+            if not org_salt and not explicit_env_org:
+                with get_session() as session:
+                    ready_org = (
+                        session.query(Organization)
+                        .filter(Organization.setup_completed == True)  # noqa: E712
+                        .order_by(Organization.created_at.desc())
+                        .first()
+                    )
+                    if ready_org:
+                        org_id = ready_org.org_id
+                        org_salt = ready_org.org_salt
+                        print(f"Auto-bound collector to newly set up organization '{org_id}' ({ready_org.name}).")
 
     dedup = FileAccessDeduplicator(window_seconds=2)
     win_last_record_id = get_last_record_id(org_id, source="windows_event_log") if use_windows else 0
