@@ -1921,8 +1921,9 @@ def render_superadmin_console(logged_user: Dict, cookie_ctrl: Optional[CookieCon
         with m4:
             render_html(render_kpi_card("Total Log Uploads", int(df_orgs["upload_count"].sum()), "Platform-wide ingested batches"))
 
-        render_html('<div class="section-title">Organization Directory (Metadata & Counts Only)</div>')
+        render_html('<div style="height:24px;"></div><div class="section-title">Organization Directory (Metadata & Counts Only)</div>')
         st.caption("No organization alerts, notes, events, rules, or real user IDs are accessible.")
+        render_html('<div style="height:8px;"></div>')
 
         display_orgs = df_orgs[["name", "status", "user_count", "alert_count", "upload_count", "industry", "created_at"]]
         st.dataframe(
@@ -1985,7 +1986,7 @@ def render_superadmin_console(logged_user: Dict, cookie_ctrl: Optional[CookieCon
         with m4:
             render_html(render_kpi_card("Banned Users", len(df_users[df_users["status"] == "banned"]), "Permanently revoked"))
 
-        render_html('<div style="height:20px;"></div><div class="section-title" style="margin-bottom:10px;">User Directory</div>')
+        render_html('<div style="height:24px;"></div><div class="section-title">User Directory</div><div style="height:12px;"></div>')
 
         display_users = df_users[["name", "email", "status", "organization", "role", "created_at"]].copy()
         display_users["organization"] = display_users["organization"].fillna("Platform").replace({"None": "Platform", "": "Platform"})
@@ -2004,7 +2005,9 @@ def render_superadmin_console(logged_user: Dict, cookie_ctrl: Optional[CookieCon
             hide_index=True,
         )
 
+        render_html('<div style="height:16px;"></div>')
         st.markdown("---")
+        render_html('<div style="height:8px;"></div>')
         with st.expander("Modify User Security Status"):
             st.caption("Suspend, ban, or reactivate a user. A written reason is mandatory.")
             user_options = {u["user_id"]: f"{u['name']} ({u['email']}) - Current: {u['status'].upper()}" for u in users}
@@ -2046,7 +2049,9 @@ def render_superadmin_console(logged_user: Dict, cookie_ctrl: Optional[CookieCon
             render_html(render_kpi_card("User Modifications", len(df_p_logs[df_p_logs["target_type"] == "user"]), "User status interventions"))
         with m3:
             render_html(render_kpi_card("Org Modifications", len(df_p_logs[df_p_logs["target_type"] == "organization"]), "Tenant lifecycle interventions"))
+        render_html('<div style="height:20px;"></div>')
         st.caption("Notice: This audit trail tracks platform governance only. Justification text from organization-level audit logs is strictly isolated and omitted.")
+        render_html('<div style="height:8px;"></div>')
 
         st.dataframe(
             df_p_logs[["actor", "timestamp", "action", "target_type", "target_id", "reason"]],
