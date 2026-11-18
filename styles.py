@@ -1463,9 +1463,8 @@ def render_sidebar_header(is_superadmin: bool = False) -> None:
 
     markup = (
         f'<div class="sidebar-brand-wrapper" style="padding:0 0 10px 0;border-bottom:1px solid #1F1F23;margin-bottom:6px;">'
-        f'<div class="sidebar-header-expanded" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+        f'<div class="sidebar-header-expanded" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;">'
         f'<img src="{logo_white_uri}" alt="HuliCAP" style="height:81px;width:auto;max-width:100%;object-fit:contain;display:block;" />'
-        f'{badge_html}'
         f'</div>'
         f'<div class="sidebar-header-collapsed" style="display:none;justify-content:center;align-items:center;">'
         f'<img src="{icon_white_uri}" alt="HuliCAP" style="width:48px;height:48px;object-fit:contain;display:block;" />'

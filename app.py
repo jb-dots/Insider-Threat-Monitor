@@ -1985,9 +1985,11 @@ def render_superadmin_console(logged_user: Dict, cookie_ctrl: Optional[CookieCon
         with m4:
             render_html(render_kpi_card("Banned Users", len(df_users[df_users["status"] == "banned"]), "Permanently revoked"))
 
-        render_html('<div class="section-title">User Directory</div>')
+        render_html('<div style="height:20px;"></div><div class="section-title" style="margin-bottom:10px;">User Directory</div>')
 
-        display_users = df_users[["name", "email", "status", "organization", "role", "created_at"]]
+        display_users = df_users[["name", "email", "status", "organization", "role", "created_at"]].copy()
+        display_users["organization"] = display_users["organization"].fillna("Platform").replace({"None": "Platform", "": "Platform"})
+        display_users["role"] = display_users["role"].fillna("super_admin").replace({"None": "super_admin", "": "super_admin"})
         st.dataframe(
             display_users,
             column_config={
