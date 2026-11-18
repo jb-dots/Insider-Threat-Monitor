@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -e
+python collector.py &
+exec streamlit run app.py --server.port "${PORT:-8501}" --server.address 0.0.0.0 --server.headless true
+

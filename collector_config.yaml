@@ -1,0 +1,15 @@
+# HuliCAP Collector Configuration
+# org_id is read from this config file (or COLLECTOR_ORG_ID env var).
+org_id: "org_c8a7b76a"
+poll_interval_seconds: 5
+device: "managed"
+
+# Company Portal JSONL source (Dunmore Corp Portal)
+enable_company_portal: true
+company_portal_log_path: "../dunmore_portal/static/company_audit.jsonl"
+# For Render / remote deployment, set company_portal_url (or COMPANY_PORTAL_URL env var), e.g.:
+# company_portal_url: "https://dunmore-portal.onrender.com/app/static/company_audit.jsonl"
+company_portal_url: ""
+
+# Windows Security Event Log source (requires Administrator privileges)
+enable_windows_event_log: false

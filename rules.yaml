@@ -1,0 +1,60 @@
+rules:
+  - rule_id: bulk_access
+    name: Bulk Resource Access
+    severity: high
+    thresholds:
+      window_minutes: 60
+      mad_multiplier: 3.5
+      min_event_count: 50
+
+  - rule_id: atypical_download
+    name: Atypical Download or Large Export
+    severity: high
+    thresholds:
+      mad_multiplier: 4.0
+      min_bytes: 50000000  # 50 MB minimum baseline floor
+
+  - rule_id: off_hours
+    name: Off-Hours Activity
+    severity: medium
+    thresholds:
+      work_start_hour: 8
+      work_end_hour: 18
+      allow_weekend: false
+
+  - rule_id: policy_violation
+    name: Security Policy Violation
+    severity: critical
+    thresholds:
+      consecutive_failures: 5
+      blocked_device_prefixes:
+        - "BYOD"
+        - "UNMANAGED"
+      role_allowed_prefixes:
+        engineer:
+          - "repo/"
+          - "server/"
+          - "doc/"
+          - "auth/"
+        sales:
+          - "crm/"
+          - "doc/"
+          - "report/"
+          - "auth/"
+        hr:
+          - "portal/"
+          - "hr/"
+          - "doc/"
+          - "auth/"
+        analyst:
+          - "db/"
+          - "report/"
+          - "auth/"
+
+  - rule_id: new_sensitive_resource
+    name: First-Time Sensitive Resource Access
+    severity: high
+    thresholds:
+      sensitive_levels:
+        - "high"
+        - "critical"
