@@ -2061,8 +2061,21 @@ def render_superadmin_console(logged_user: Dict, cookie_ctrl: Optional[CookieCon
         )
 
 
+@st.cache_resource
+def _bootstrap_superadmin() -> bool:
+    """Create or update super-admin once on startup when SUPERADMIN_EMAIL/PASSWORD env vars are set."""
+    if os.environ.get("SUPERADMIN_EMAIL") and os.environ.get("SUPERADMIN_PASSWORD"):
+        try:
+            from create_superadmin import create_or_update_superadmin
+            create_or_update_superadmin()
+        except Exception as exc:
+            print(f"[WARN] Superadmin bootstrap skipped: {exc}")
+    return True
+
+
 def main():
     init_db()
+    _bootstrap_superadmin()
     flush_pending_toast()
     cookie_ctrl = CookieController()
 
