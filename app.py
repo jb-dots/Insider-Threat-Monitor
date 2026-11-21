@@ -1767,21 +1767,20 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
                 is_selected = (choice == opt_key)
                 border = "2px solid #111111" if is_selected else "1px solid #E5E7EB"
                 shadow = "box-shadow: 0 4px 12px rgba(0,0,0,0.08);" if is_selected else "box-shadow: 0 1px 3px rgba(0,0,0,0.04);"
-                badge = '<span style="background-color:#111111;color:#FFFFFF;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;">SELECTED</span>' if is_selected else ""
+                badge = '<span style="flex-shrink:0;background-color:#111111;color:#FFFFFF;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;">SELECTED</span>' if is_selected else ""
                 with cols[idx]:
+                    # Fixed height keeps all three cards (and the buttons below them) aligned
                     render_html(
-                        f'<div style="border:{border};border-radius:12px;padding:20px 22px;background-color:#FFFFFF;{shadow}min-height:150px;display:flex;flex-direction:column;justify-content:space-between;margin-bottom:8px;">'
-                        f'<div>'
-                        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
-                        f'<h3 style="margin:0;color:#111111;font-size:18px;font-weight:700;">{opt_title}</h3>'
+                        f'<div style="box-sizing:border-box;height:240px;overflow:hidden;border:{border};border-radius:12px;padding:20px 22px;background-color:#FFFFFF;{shadow}margin-bottom:16px;">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;min-height:48px;">'
+                        f'<h3 style="margin:0;padding:0;color:#111111;font-size:17px;font-weight:700;line-height:24px;">{opt_title}</h3>'
                         f'{badge}'
                         f'</div>'
-                        f'<p style="margin:0;font-size:14px;color:#475569;line-height:20px;">{opt_desc}</p>'
-                        f'</div>'
+                        f'<p style="margin:0;font-size:14px;color:#475569;line-height:21px;">{opt_desc}</p>'
                         f'</div>'
                     )
                     if st.button(
-                        "Selected" if is_selected else opt_title,
+                        "Selected" if is_selected else "Select",
                         key=f"setup_data_btn_{opt_key}",
                         type="primary" if is_selected else "secondary",
                         use_container_width=True,
@@ -1802,8 +1801,8 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
                 )
                 st.session_state["setup_portal_url"] = portal_url_input
 
-            st.write("")
-            col_back, col_finish = st.columns([1, 2])
+            render_html('<div style="height:20px;"></div>')
+            col_back, col_finish = st.columns([1, 2], gap="medium")
             with col_back:
                 if st.button("Back", type="secondary", use_container_width=True, key="setup_step3_back"):
                     st.session_state["setup_step"] = 2
