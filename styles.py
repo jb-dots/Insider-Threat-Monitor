@@ -8,6 +8,7 @@ Provides a unified corporate B2B security SaaS visual language:
 - Specialized platform accent (Dark Teal #0F766E) for super-admin views.
 """
 
+import functools
 from typing import Any, Dict, Optional, List, Union
 import streamlit as st
 
@@ -53,6 +54,7 @@ CHIP_PALETTES: Dict[str, Dict[str, str]] = {
 }
 
 
+@functools.lru_cache(maxsize=4)
 def get_custom_css(is_superadmin: bool = False) -> str:
     """Generate the unified CSS stylesheet for HuliCAP."""
     from logo_assets import get_icon_white_uri

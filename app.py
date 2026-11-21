@@ -74,12 +74,6 @@ from db import (
 )
 from detector import run_detection_pipeline
 
-import importlib
-import logo_assets
-import styles
-importlib.reload(logo_assets)
-importlib.reload(styles)
-
 from styles import (
     clean_html,
     inject_styles,
@@ -270,7 +264,7 @@ def navigate_to_detail_view(alert_id: str):
     notify_toast(f"Opened alert {alert_id}.")
 
 
-@st.fragment(run_every="2s")
+@st.fragment(run_every="10s")
 def render_idle_monitor(cookie_ctrl: CookieController):
     """Client-side activity heartbeat checking against server-authoritative DB session."""
     token = st.session_state.get("session_token")
@@ -1602,6 +1596,11 @@ def render_auth_page(cookie_ctrl: Optional[CookieController] = None):
 
 
 
+def _set_setup_state(key: str, value) -> None:
+    """Button callback: update setup state before the rerun so one click = one script run."""
+    st.session_state[key] = value
+
+
 def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
     """3-step 'Set up your account' flow for new org admins before entering the dashboard."""
     # Security check: if org already exists, only its org_admin may complete setup
@@ -1723,14 +1722,15 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
             st.write("")
             col_back, col_next = st.columns([1, 2])
             with col_back:
-                if st.button("Back", type="secondary", use_container_width=True, key="setup_step2_back"):
-                    st.session_state["setup_step"] = 1
-                    st.rerun()
+                st.button("Back", type="secondary", use_container_width=True, key="setup_step2_back",
+                          on_click=_set_setup_state, args=("setup_step", 1))
             with col_next:
-                if st.button("Next", type="primary", disabled=not agreed, use_container_width=True, key="setup_step2_next"):
+                def _accept_guidelines() -> None:
                     record_guideline_acceptance(logged_user["user_id"], version="v1.0")
                     st.session_state["setup_step"] = 3
-                    st.rerun()
+
+                st.button("Next", type="primary", disabled=not agreed, use_container_width=True,
+                          key="setup_step2_next", on_click=_accept_guidelines)
 
         else:
             render_html(
@@ -1779,14 +1779,14 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
                         f'<p style="margin:0;font-size:14px;color:#475569;line-height:21px;">{opt_desc}</p>'
                         f'</div>'
                     )
-                    if st.button(
+                    st.button(
                         "Selected" if is_selected else "Select",
                         key=f"setup_data_btn_{opt_key}",
                         type="primary" if is_selected else "secondary",
                         use_container_width=True,
-                    ):
-                        st.session_state["setup_data_choice"] = opt_key
-                        st.rerun()
+                        on_click=_set_setup_state,
+                        args=("setup_data_choice", opt_key),
+                    )
 
             portal_url_input = ""
             if choice == "portal":
@@ -1804,9 +1804,8 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
             render_html('<div style="height:20px;"></div>')
             col_back, col_finish = st.columns([1, 2], gap="medium")
             with col_back:
-                if st.button("Back", type="secondary", use_container_width=True, key="setup_step3_back"):
-                    st.session_state["setup_step"] = 2
-                    st.rerun()
+                st.button("Back", type="secondary", use_container_width=True, key="setup_step3_back",
+                          on_click=_set_setup_state, args=("setup_step", 2))
             with col_finish:
                 if st.button("Finish setup", type="primary", use_container_width=True, key="setup_finish_btn"):
                     # Always derive org_id from DB session, never from a form field
@@ -2104,6 +2103,13 @@ def render_superadmin_console(logged_user: Dict, cookie_ctrl: Optional[CookieCon
 
 
 @st.cache_resource
+def _init_db_once() -> bool:
+    """Create tables / run migrations once per server process instead of on every rerun."""
+    init_db()
+    return True
+
+
+@st.cache_resource
 def _bootstrap_superadmin() -> bool:
     """Create or update super-admin once on startup when SUPERADMIN_EMAIL/PASSWORD env vars are set."""
     if os.environ.get("SUPERADMIN_EMAIL") and os.environ.get("SUPERADMIN_PASSWORD"):
@@ -2116,7 +2122,7 @@ def _bootstrap_superadmin() -> bool:
 
 
 def main():
-    init_db()
+    _init_db_once()
     _bootstrap_superadmin()
     flush_pending_toast()
     cookie_ctrl = CookieController()
@@ -2180,9 +2186,12 @@ def main():
     if sess_id:
         touch_session(sess_id)
 
-    # Sync session token to browser cookie
-    if "session_token" in st.session_state:
-        set_session_cookie(st.session_state["session_token"])
+    # Sync session token to browser cookie (once per token, not on every rerun —
+    # each call mounts a new iframe, which made every click flicker)
+    token_to_sync = st.session_state.get("session_token")
+    if token_to_sync and st.session_state.get("_cookie_synced_token") != token_to_sync:
+        set_session_cookie(token_to_sync)
+        st.session_state["_cookie_synced_token"] = token_to_sync
 
     # Client-side idle monitor (runs at background interval without touching session)
     render_idle_monitor(cookie_ctrl)
