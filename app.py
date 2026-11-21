@@ -161,6 +161,46 @@ def set_session_cookie(raw_token: str) -> None:
     )
 
 
+def open_sidebar_on_load() -> None:
+    """Start every page load with the sidebar expanded.
+
+    Streamlit 1.66 remembers the collapsed state in localStorage (stSidebarCollapsed-*),
+    which overrides initial_sidebar_state="expanded". Clear it and re-open once per session;
+    the user can still collapse it to the icon rail during that session.
+    """
+    if st.session_state.get("_sidebar_opened_on_load"):
+        return
+    st.session_state["_sidebar_opened_on_load"] = True
+    import streamlit.components.v1 as components
+    components.html(
+        """
+        <script>
+        try {
+            const doc = window.parent.document;
+            const store = window.parent.localStorage;
+            Object.keys(store)
+                .filter((k) => k.startsWith("stSidebarCollapsed-"))
+                .forEach((k) => store.removeItem(k));
+            let tries = 0;
+            const timer = setInterval(() => {
+                const sb = doc.querySelector('[data-testid="stSidebar"]');
+                const btn = doc.querySelector('[data-testid="stExpandSidebarButton"]');
+                if (sb && sb.getAttribute("data-collapsed") === "true" && btn) {
+                    btn.click();
+                    clearInterval(timer);
+                } else if (sb && sb.getAttribute("data-collapsed") === "false") {
+                    clearInterval(timer);
+                }
+                if (++tries > 20) clearInterval(timer);
+            }, 100);
+        } catch (e) {}
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
+
+
 def clear_session_cookie() -> None:
     """Clear browser cookie via client-side JavaScript."""
     import streamlit.components.v1 as components
@@ -311,31 +351,47 @@ def render_idle_monitor(cookie_ctrl: CookieController):
         secs = remaining % 60
         time_str = f"{mins}:{secs:02d}" if IDLE_LOGOUT_SECONDS >= 60 else f"{remaining}s"
 
-        render_html(
-            f'<div style="position:fixed; top:24px; left:50%; transform:translateX(-50%); z-index:999999; width:92%; max-width:480px; background-color:#FFFFFF; border:1px solid #E5E7EB; border-top:4px solid {BRAND_ORANGE}; border-radius:16px; padding:22px 24px; box-shadow:0 12px 36px rgba(0,0,0,0.22);">'
-            f'<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">'
-            f'<div style="width:10px; height:10px; border-radius:50%; background-color:#EF4444;"></div>'
-            f'<div style="font-size:16px; font-weight:700; color:#111111;">Are you still there?</div>'
-            f'</div>'
-            f'<div style="font-size:14px; color:#4B5563; line-height:1.5; margin-bottom:16px;">'
-            f'You have been inactive. For security compliance, your session will automatically terminate in <strong style="color:#111111; font-size:15px;">{time_str}</strong>.'
-            f'</div>'
-            f'</div>'
+        # Style the keyed container as a centered modal with a dimmed backdrop, so the
+        # card text AND its buttons render together inside one fixed box.
+        st.markdown(
+            f"""<style>
+            .st-key-idle_warning_modal {{
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                z-index: 1000000; width: calc(100% - 32px); max-width: 440px;
+                background: #FFFFFF; border: 1px solid #E5E7EB; border-top: 4px solid {BRAND_ORANGE};
+                border-radius: 16px; padding: 24px; gap: 0;
+                box-shadow: 0 0 0 100vmax rgba(15, 23, 42, 0.45), 0 20px 48px rgba(0, 0, 0, 0.25);
+            }}
+            .st-key-idle_warning_modal [data-testid="stHorizontalBlock"] {{ gap: 12px; }}
+            .st-key-idle_warning_modal button {{ min-height: 44px; }}
+            </style>""",
+            unsafe_allow_html=True,
         )
-        col_w1, col_w2 = st.columns(2)
-        with col_w1:
-            if st.button("Stay signed in", type="primary", key="btn_stay_signed_in", use_container_width=True):
-                touch_session(session_obj["session_id"])
-                st.rerun()
-        with col_w2:
-            if st.button("Sign out now", type="secondary", key="btn_idle_sign_out", use_container_width=True):
-                revoke_session(session_obj["session_id"])
-                try:
-                    cookie_ctrl.remove(COOKIE_NAME)
-                except Exception:
-                    pass
-                st.session_state.clear()
-                st.rerun()
+        with st.container(key="idle_warning_modal"):
+            render_html(
+                '<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">'
+                '<div style="width:10px; height:10px; border-radius:50%; background-color:#EF4444; flex-shrink:0;"></div>'
+                '<div style="font-size:17px; font-weight:700; color:#111111;">Are you still there?</div>'
+                '</div>'
+                '<div style="font-size:14px; color:#4B5563; line-height:1.6; margin-bottom:20px;">'
+                f'You have been inactive. For security compliance, your session will automatically end in '
+                f'<strong style="color:#111111; font-size:15px;">{time_str}</strong>.'
+                '</div>'
+            )
+            col_w1, col_w2 = st.columns(2)
+            with col_w1:
+                if st.button("Sign out now", type="secondary", key="btn_idle_sign_out", use_container_width=True):
+                    revoke_session(session_obj["session_id"])
+                    try:
+                        cookie_ctrl.remove(COOKIE_NAME)
+                    except Exception:
+                        pass
+                    st.session_state.clear()
+                    st.rerun()
+            with col_w2:
+                if st.button("Stay signed in", type="primary", key="btn_stay_signed_in", use_container_width=True):
+                    touch_session(session_obj["session_id"])
+                    st.rerun()
 
 
 def render_alert_queue(alerts: List[Dict]):
@@ -538,47 +594,174 @@ def render_alert_detail(
         if pre_alert:
             pre_status = str(pre_alert.get("status", "")).lower()
             st.session_state["detail_status_filter"] = "active" if pre_status in ("new", "escalated") else pre_status
+            st.session_state["detail_severity_filter"] = []
+            st.session_state["detail_rule_filter"] = []
+            st.session_state["detail_search_query"] = ""
+            st.session_state["detail_alert_picker"] = preselected_id
 
     if "detail_status_filter" not in st.session_state:
         st.session_state["detail_status_filter"] = "active" if active_count > 0 else "all"
 
-    col_f, col_a = st.columns([1, 2.2])
-    with col_f:
-        selected_filter = st.selectbox(
-            "Filter Queue",
+    def _clear_detail_filters():
+        st.session_state["detail_status_filter"] = "active" if active_count > 0 else "all"
+        st.session_state["detail_severity_filter"] = []
+        st.session_state["detail_rule_filter"] = []
+        st.session_state["detail_search_query"] = ""
+        st.session_state.pop("detail_alert_table", None)
+        st.session_state.pop("_detail_last_table_rows", None)
+
+    # 1. Filter bar row
+    all_rules = sorted({str(a.get("rule_id", "")) for a in sorted_alerts if a.get("rule_id")})
+    severity_options = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+
+    col_status, col_sev = st.columns([1.4, 1.0])
+    with col_status:
+        selected_filter = st.pills(
+            "Status",
             options=[k for k, _ in filter_options],
-            format_func=lambda k: filter_labels[k],
+            format_func=lambda k: {
+                "active": f"Active ({active_count})",
+                "new": f"New ({counts['new']})",
+                "escalated": f"Escalated ({counts['escalated']})",
+                "reviewed": f"Reviewed ({counts['reviewed']})",
+                "dismissed": f"Dismissed ({counts['dismissed']})",
+                "all": f"All ({len(sorted_alerts)})",
+            }[k],
+            selection_mode="single",
             key="detail_status_filter",
         )
+        if not selected_filter:
+            selected_filter = "active" if active_count > 0 else "all"
 
+    with col_sev:
+        selected_severities = st.pills(
+            "Severity",
+            options=severity_options,
+            selection_mode="multi",
+            key="detail_severity_filter",
+        )
+
+    col_rule, col_search, col_clear = st.columns([1.2, 1.3, 0.5])
+    with col_rule:
+        selected_rules = st.multiselect(
+            "Rule",
+            options=all_rules,
+            placeholder="All rules",
+            key="detail_rule_filter",
+        )
+    with col_search:
+        search_query = st.text_input(
+            "Search",
+            placeholder="Alert ID or user pseudonym...",
+            key="detail_search_query",
+        ).strip().lower()
+    with col_clear:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        st.button("Clear filters", on_click=_clear_detail_filters, use_container_width=True, key="detail_clear_filters_btn")
+
+    # Apply filters
     if selected_filter == "active":
         visible_alerts = [a for a in sorted_alerts if str(a.get("status", "")).lower() in ("new", "escalated")]
     elif selected_filter == "all":
-        visible_alerts = sorted_alerts
+        visible_alerts = list(sorted_alerts)
     else:
         visible_alerts = [a for a in sorted_alerts if str(a.get("status", "")).lower() == selected_filter]
 
+    if selected_severities:
+        sev_set = {s.upper() for s in selected_severities}
+        visible_alerts = [a for a in visible_alerts if str(a.get("severity", "")).upper() in sev_set]
+
+    if selected_rules:
+        rule_set = set(selected_rules)
+        visible_alerts = [a for a in visible_alerts if str(a.get("rule_id", "")) in rule_set]
+
+    if search_query:
+        visible_alerts = [
+            a for a in visible_alerts
+            if search_query in str(a.get("alert_id", "")).lower()
+            or search_query in str(a.get("user_pseudonym", "")).lower()
+        ]
+
+    # 4. Empty state
     if not visible_alerts:
-        st.info(f"No alerts in **{filter_labels[selected_filter]}**.")
+        st.info("No alerts match your current filters.")
+        st.button("Clear filters", on_click=_clear_detail_filters, key="detail_empty_clear_btn")
         return
 
     visible_ids = [a["alert_id"] for a in visible_alerts]
+
+    # 2. Filtered alerts table
+    st.caption(f"Showing {len(visible_alerts)} of {len(sorted_alerts)} alerts")
+
+    def _fmt_detected(ts: Any) -> str:
+        s = str(ts or "")
+        return s[:16].replace("T", " ") if len(s) >= 16 else s
+
+    table_df = pd.DataFrame([
+        {
+            "Severity": str(a.get("severity", "")).upper(),
+            "Rule": str(a.get("rule_id", "")),
+            "User": str(a.get("user_pseudonym", "")),
+            "Detected": _fmt_detected(a.get("created_at", "")),
+            "Status": str(a.get("status", "")).upper(),
+        }
+        for a in visible_alerts
+    ])
+
+    table_event = st.dataframe(
+        table_df,
+        hide_index=True,
+        height=248,
+        on_select="rerun",
+        selection_mode="single-row",
+        use_container_width=True,
+        key="detail_alert_table",
+    )
+
+    table_rows = list(table_event.get("selection", {}).get("rows", [])) if isinstance(table_event, dict) else []
+    last_table_rows = st.session_state.get("_detail_last_table_rows")
+    if table_rows and table_rows != last_table_rows:
+        row_idx = table_rows[0]
+        if 0 <= row_idx < len(visible_ids):
+            st.session_state["detail_alert_picker"] = visible_ids[row_idx]
+            st.session_state["_detail_last_table_rows"] = table_rows
+    elif not table_rows and last_table_rows:
+        st.session_state["_detail_last_table_rows"] = []
+
     if preselected_id in visible_ids:
         st.session_state["detail_alert_picker"] = preselected_id
     elif st.session_state.get("detail_alert_picker") not in visible_ids:
         st.session_state["detail_alert_picker"] = visible_ids[0]
 
-    alert_lookup = {a["alert_id"]: a for a in visible_alerts}
-    with col_a:
-        selected_id = st.selectbox(
-            "Select Alert",
-            options=visible_ids,
-            format_func=lambda aid: (
-                f"[{alert_lookup[aid]['severity'].upper()}] {alert_lookup[aid]['rule_id']} · "
-                f"{alert_lookup[aid]['user_pseudonym']} · {alert_lookup[aid]['status'].upper()} ({aid})"
-            ),
-            key="detail_alert_picker",
+    selected_id = st.session_state["detail_alert_picker"]
+    current_idx = visible_ids.index(selected_id)
+
+    # 3. Slim navigation row above detail card
+    def _go_prev_alert():
+        cur = st.session_state.get("detail_alert_picker")
+        if cur in visible_ids:
+            i = visible_ids.index(cur)
+            if i > 0:
+                st.session_state["detail_alert_picker"] = visible_ids[i - 1]
+
+    def _go_next_alert():
+        cur = st.session_state.get("detail_alert_picker")
+        if cur in visible_ids:
+            i = visible_ids.index(cur)
+            if i < len(visible_ids) - 1:
+                st.session_state["detail_alert_picker"] = visible_ids[i + 1]
+
+    nav_prev, nav_pos, nav_next = st.columns([1, 2, 1])
+    with nav_prev:
+        st.button("← Previous", on_click=_go_prev_alert, disabled=(current_idx == 0), use_container_width=True, key="detail_prev_btn")
+    with nav_pos:
+        render_html(
+            f'<div style="text-align:center; font-size:13px; font-weight:600; color:#4B5563; padding-top:8px;">'
+            f'Alert {current_idx + 1} of {len(visible_alerts)}'
+            f'</div>'
         )
+    with nav_next:
+        st.button("Next →", on_click=_go_next_alert, disabled=(current_idx >= len(visible_alerts) - 1), use_container_width=True, key="detail_next_btn")
 
     alert = get_org_alert_by_id(selected_id, org_id)
     if not alert:
@@ -874,6 +1057,52 @@ def render_alert_detail(
                 st.rerun()
 
 
+def _load_default_rules_meta() -> Tuple[Dict[str, Dict[str, Any]], str]:
+    """Load default rule definitions (name, severity, thresholds) from rules.yaml."""
+    rules_path = Path("rules.yaml")
+    raw_yaml = rules_path.read_text(encoding="utf-8") if rules_path.exists() else "rules: []"
+    parsed = yaml.safe_load(raw_yaml) or {}
+    meta: Dict[str, Dict[str, Any]] = {}
+    for entry in parsed.get("rules", []):
+        rid = entry.get("rule_id")
+        if rid:
+            meta[rid] = {
+                "name": entry.get("name", rid),
+                "severity": str(entry.get("severity", "medium")).lower(),
+                "thresholds": dict(entry.get("thresholds") or {}),
+            }
+    return meta, raw_yaml
+
+
+def _render_rule_default_caption(default_text: str, is_modified: bool) -> None:
+    """Render a small 'Default: X' caption with a 'Modified' pill when changed from default."""
+    badge = (
+        '<span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;'
+        'font-size:11px;font-weight:600;background-color:#FFF4E0;color:#B45F06;border:1px solid #FDE68A;">'
+        'Modified</span>'
+        if is_modified
+        else ""
+    )
+    render_html(
+        f'<div style="font-size:12px;color:#6B7280;margin:-4px 0 8px 0;">'
+        f'Default: <strong>{default_text}</strong>{badge}</div>'
+    )
+
+
+def _format_rule_diff(rule_id: str, old_t: Dict[str, Any], new_t: Dict[str, Any]) -> List[str]:
+    """Build human-readable change summary lines for a single rule."""
+    changes: List[str] = []
+    for k in new_t:
+        ov = old_t.get(k)
+        nv = new_t.get(k)
+        if ov != nv:
+            if k == "min_bytes" and isinstance(ov, (int, float)) and isinstance(nv, (int, float)):
+                changes.append(f"{rule_id}: min_bytes {round(ov / 1_000_000, 2):g} MB → {round(nv / 1_000_000, 2):g} MB")
+            else:
+                changes.append(f"{rule_id}: {k} {ov} → {nv}")
+    return changes
+
+
 def render_rules_page(org_id: str, active_role: str, user_id: str):
     """Page 3: Rules configuration editor (Org Admin only)."""
     render_page_layout(
@@ -887,58 +1116,444 @@ def render_rules_page(org_id: str, active_role: str, user_id: str):
         st.error(f"Access Denied: Only organization administrators can view and edit detection rules. ({err})")
         return
 
-    # Load organization rules from database
-    org_rules = get_org_rules(org_id, role=active_role)
-    if not org_rules:
-        rules_path = Path("rules.yaml")
-        current_yaml_text = rules_path.read_text(encoding="utf-8") if rules_path.exists() else "rules: []"
-    else:
-        current_yaml_text = yaml.dump({"rules": [{"rule_id": k, "thresholds": v} for k, v in org_rules.items()]}, sort_keys=False)
+    default_meta, raw_default_yaml = _load_default_rules_meta()
+    org_rules = get_org_rules(org_id, role=active_role) or {}
+
+    rule_descriptions = {
+        "bulk_access": "Detects when a user accesses an unusually high number of resources within a short time window.",
+        "atypical_download": "Flags data exports or downloads that significantly exceed a user's normal baseline volume.",
+        "off_hours": "Identifies login or resource activity occurring outside normal business hours or on weekends.",
+        "policy_violation": "Triggers on repeated authentication failures, blocked devices, or access outside role-permitted folders.",
+        "new_sensitive_resource": "Alerts when a user accesses a high-sensitivity resource for the first time.",
+    }
+
+    # Build current saved thresholds (DB overrides merged over rules.yaml defaults)
+    current_rules: Dict[str, Dict[str, Any]] = {}
+    for rid, info in default_meta.items():
+        merged = dict(info["thresholds"])
+        if rid in org_rules and isinstance(org_rules[rid], dict):
+            merged.update(org_rules[rid])
+        current_rules[rid] = merged
 
     st.warning("Admin Authority: Changes made here alter detection thresholds specifically for your organization.")
+
+    def _reset_rule_to_default(rid: str):
+        defs = default_meta[rid]["thresholds"]
+        if rid == "bulk_access":
+            st.session_state[f"rule_{org_id}_bulk_window"] = int(defs.get("window_minutes", 60))
+            st.session_state[f"rule_{org_id}_bulk_mad"] = float(defs.get("mad_multiplier", 3.5))
+            st.session_state[f"rule_{org_id}_bulk_min"] = int(defs.get("min_event_count", 50))
+        elif rid == "atypical_download":
+            st.session_state[f"rule_{org_id}_dl_mad"] = float(defs.get("mad_multiplier", 4.0))
+            st.session_state[f"rule_{org_id}_dl_mb"] = float(round(int(defs.get("min_bytes", 50000000)) / 1_000_000, 2))
+        elif rid == "off_hours":
+            st.session_state[f"rule_{org_id}_oh_start"] = int(defs.get("work_start_hour", 8))
+            st.session_state[f"rule_{org_id}_oh_end"] = int(defs.get("work_end_hour", 18))
+            st.session_state[f"rule_{org_id}_oh_weekend"] = bool(defs.get("allow_weekend", False))
+        elif rid == "policy_violation":
+            st.session_state[f"rule_{org_id}_pv_failures"] = int(defs.get("consecutive_failures", 5))
+            st.session_state[f"rule_{org_id}_pv_blocked"] = list(defs.get("blocked_device_prefixes", []))
+            ver_key = f"rule_{org_id}_pv_table_ver"
+            st.session_state[ver_key] = st.session_state.get(ver_key, 0) + 1
+            st.session_state[f"rule_{org_id}_pv_force_default_table"] = True
+        elif rid == "new_sensitive_resource":
+            st.session_state[f"rule_{org_id}_nsr_levels"] = list(defs.get("sensitive_levels", ["high", "critical"]))
+
+    edited_rules: Dict[str, Dict[str, Any]] = {}
+
+    # 1. bulk_access
+    if "bulk_access" in default_meta:
+        rid = "bulk_access"
+        defs = default_meta[rid]["thresholds"]
+        cur = current_rules[rid]
+        with st.container(border=True):
+            h_left, h_right = st.columns([4, 1])
+            with h_left:
+                render_html(
+                    f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+                    f'<span style="font-size:17px;font-weight:700;color:#111111;">{default_meta[rid]["name"]}</span>'
+                    f'{render_severity_chip(default_meta[rid]["severity"])}</div>'
+                    f'<div style="font-size:13px;color:#4B5563;margin:4px 0 10px 0;">{rule_descriptions[rid]}</div>'
+                )
+            with h_right:
+                st.button("Reset to default", key=f"reset_{org_id}_{rid}", on_click=_reset_rule_to_default, args=(rid,), use_container_width=True)
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                w_min = int(st.number_input(
+                    "Time window (minutes)",
+                    min_value=1,
+                    step=5,
+                    value=int(cur.get("window_minutes", defs["window_minutes"])),
+                    help="Length of the rolling window used to count resource access events.",
+                    key=f"rule_{org_id}_bulk_window",
+                ))
+                _render_rule_default_caption(f"{defs['window_minutes']} min", w_min != int(defs["window_minutes"]))
+            with c2:
+                b_mad = float(st.number_input(
+                    "Sensitivity (how unusual vs. the user's normal, ×)",
+                    min_value=0.1,
+                    step=0.5,
+                    format="%.2f",
+                    value=float(cur.get("mad_multiplier", defs["mad_multiplier"])),
+                    help="MAD multiplier over the user's baseline. Lower values trigger more alerts.",
+                    key=f"rule_{org_id}_bulk_mad",
+                ))
+                _render_rule_default_caption(f"{defs['mad_multiplier']}×", b_mad != float(defs["mad_multiplier"]))
+            with c3:
+                b_min = int(st.number_input(
+                    "Minimum event count",
+                    min_value=1,
+                    step=5,
+                    value=int(cur.get("min_event_count", defs["min_event_count"])),
+                    help="Minimum number of events in the window before an alert can fire.",
+                    key=f"rule_{org_id}_bulk_min",
+                ))
+                _render_rule_default_caption(str(defs["min_event_count"]), b_min != int(defs["min_event_count"]))
+
+            edited_rules[rid] = {
+                "window_minutes": w_min,
+                "mad_multiplier": b_mad,
+                "min_event_count": b_min,
+            }
+
+    # 2. atypical_download
+    if "atypical_download" in default_meta:
+        rid = "atypical_download"
+        defs = default_meta[rid]["thresholds"]
+        cur = current_rules[rid]
+        def_mb = round(int(defs["min_bytes"]) / 1_000_000, 2)
+        cur_mb = round(int(cur.get("min_bytes", defs["min_bytes"])) / 1_000_000, 2)
+        with st.container(border=True):
+            h_left, h_right = st.columns([4, 1])
+            with h_left:
+                render_html(
+                    f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+                    f'<span style="font-size:17px;font-weight:700;color:#111111;">{default_meta[rid]["name"]}</span>'
+                    f'{render_severity_chip(default_meta[rid]["severity"])}</div>'
+                    f'<div style="font-size:13px;color:#4B5563;margin:4px 0 10px 0;">{rule_descriptions[rid]}</div>'
+                )
+            with h_right:
+                st.button("Reset to default", key=f"reset_{org_id}_{rid}", on_click=_reset_rule_to_default, args=(rid,), use_container_width=True)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                dl_mad = float(st.number_input(
+                    "Sensitivity (how unusual vs. the user's normal, ×)",
+                    min_value=0.1,
+                    step=0.5,
+                    format="%.2f",
+                    value=float(cur.get("mad_multiplier", defs["mad_multiplier"])),
+                    help="MAD multiplier over the user's normal download volume. Lower values trigger more alerts.",
+                    key=f"rule_{org_id}_dl_mad",
+                ))
+                _render_rule_default_caption(f"{defs['mad_multiplier']}×", dl_mad != float(defs["mad_multiplier"]))
+            with c2:
+                dl_mb = float(st.number_input(
+                    "Minimum download size (MB)",
+                    min_value=0.1,
+                    step=5.0,
+                    format="%.2f",
+                    value=float(cur_mb),
+                    help="Minimum export volume in megabytes required before flagging an anomaly.",
+                    key=f"rule_{org_id}_dl_mb",
+                ))
+                dl_bytes = int(round(dl_mb * 1_000_000))
+                _render_rule_default_caption(f"{def_mb:g} MB", dl_bytes != int(defs["min_bytes"]))
+
+            edited_rules[rid] = {
+                "mad_multiplier": dl_mad,
+                "min_bytes": dl_bytes,
+            }
+
+    # 3. off_hours
+    if "off_hours" in default_meta:
+        rid = "off_hours"
+        defs = default_meta[rid]["thresholds"]
+        cur = current_rules[rid]
+        with st.container(border=True):
+            h_left, h_right = st.columns([4, 1])
+            with h_left:
+                render_html(
+                    f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+                    f'<span style="font-size:17px;font-weight:700;color:#111111;">{default_meta[rid]["name"]}</span>'
+                    f'{render_severity_chip(default_meta[rid]["severity"])}</div>'
+                    f'<div style="font-size:13px;color:#4B5563;margin:4px 0 10px 0;">{rule_descriptions[rid]}</div>'
+                )
+            with h_right:
+                st.button("Reset to default", key=f"reset_{org_id}_{rid}", on_click=_reset_rule_to_default, args=(rid,), use_container_width=True)
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                oh_start = int(st.number_input(
+                    "Workday start hour (0–23)",
+                    min_value=0,
+                    max_value=23,
+                    step=1,
+                    value=int(cur.get("work_start_hour", defs["work_start_hour"])),
+                    help="24-hour clock start of normal business hours (e.g., 8 = 8:00 AM).",
+                    key=f"rule_{org_id}_oh_start",
+                ))
+                _render_rule_default_caption(f"{defs['work_start_hour']}:00", oh_start != int(defs["work_start_hour"]))
+            with c2:
+                oh_end = int(st.number_input(
+                    "Workday end hour (0–23)",
+                    min_value=0,
+                    max_value=23,
+                    step=1,
+                    value=int(cur.get("work_end_hour", defs["work_end_hour"])),
+                    help="24-hour clock end of normal business hours (e.g., 18 = 6:00 PM).",
+                    key=f"rule_{org_id}_oh_end",
+                ))
+                _render_rule_default_caption(f"{defs['work_end_hour']}:00", oh_end != int(defs["work_end_hour"]))
+            with c3:
+                oh_weekend = bool(st.toggle(
+                    "Allow weekend activity",
+                    value=bool(cur.get("allow_weekend", defs["allow_weekend"])),
+                    help="When off, any activity on Saturday or Sunday triggers an off-hours alert.",
+                    key=f"rule_{org_id}_oh_weekend",
+                ))
+                _render_rule_default_caption("On" if defs["allow_weekend"] else "Off", oh_weekend != bool(defs["allow_weekend"]))
+
+            edited_rules[rid] = {
+                "work_start_hour": oh_start,
+                "work_end_hour": oh_end,
+                "allow_weekend": oh_weekend,
+            }
+
+    # 4. policy_violation
+    if "policy_violation" in default_meta:
+        rid = "policy_violation"
+        defs = default_meta[rid]["thresholds"]
+        cur = current_rules[rid]
+        with st.container(border=True):
+            h_left, h_right = st.columns([4, 1])
+            with h_left:
+                render_html(
+                    f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+                    f'<span style="font-size:17px;font-weight:700;color:#111111;">{default_meta[rid]["name"]}</span>'
+                    f'{render_severity_chip(default_meta[rid]["severity"])}</div>'
+                    f'<div style="font-size:13px;color:#4B5563;margin:4px 0 10px 0;">{rule_descriptions[rid]}</div>'
+                )
+            with h_right:
+                st.button("Reset to default", key=f"reset_{org_id}_{rid}", on_click=_reset_rule_to_default, args=(rid,), use_container_width=True)
+
+            c1, c2 = st.columns([1, 2])
+            with c1:
+                pv_fail = int(st.number_input(
+                    "Consecutive failed logins",
+                    min_value=1,
+                    step=1,
+                    value=int(cur.get("consecutive_failures", defs["consecutive_failures"])),
+                    help="Number of back-to-back failed sign-in attempts before flagging.",
+                    key=f"rule_{org_id}_pv_failures",
+                ))
+                _render_rule_default_caption(str(defs["consecutive_failures"]), pv_fail != int(defs["consecutive_failures"]))
+
+            with c2:
+                cur_blocked = list(cur.get("blocked_device_prefixes", defs["blocked_device_prefixes"]))
+                def_blocked = list(defs["blocked_device_prefixes"])
+                blocked_opts = sorted(set(def_blocked + cur_blocked))
+                pv_blocked = st.multiselect(
+                    "Blocked device prefixes",
+                    options=blocked_opts,
+                    default=cur_blocked,
+                    accept_new_options=True,
+                    help="Device name prefixes that are prohibited from accessing corporate resources.",
+                    key=f"rule_{org_id}_pv_blocked",
+                )
+                _render_rule_default_caption(", ".join(def_blocked), pv_blocked != def_blocked)
+
+            st.markdown("**Role-allowed resource folders**")
+            force_default_tbl = st.session_state.pop(f"rule_{org_id}_pv_force_default_table", False)
+            role_source = defs.get("role_allowed_prefixes", {}) if force_default_tbl else cur.get("role_allowed_prefixes", defs.get("role_allowed_prefixes", {}))
+            roles_order = ["engineer", "sales", "hr", "analyst"]
+            role_rows = [
+                {"Role": r, "Allowed folders": ", ".join(role_source.get(r, []))}
+                for r in roles_order
+            ]
+            table_ver = st.session_state.get(f"rule_{org_id}_pv_table_ver", 0)
+            edited_role_df = st.data_editor(
+                pd.DataFrame(role_rows),
+                hide_index=True,
+                use_container_width=True,
+                disabled=["Role"],
+                column_config={
+                    "Role": st.column_config.TextColumn("Role", width="small"),
+                    "Allowed folders": st.column_config.TextColumn("Allowed folders (comma-separated)", width="large"),
+                },
+                key=f"rule_{org_id}_pv_role_table_v{table_ver}",
+            )
+            parsed_role_prefixes: Dict[str, List[str]] = {}
+            for _, row in edited_role_df.iterrows():
+                r_name = str(row["Role"]).strip()
+                folders = [p.strip() for p in str(row["Allowed folders"] or "").split(",") if p.strip()]
+                parsed_role_prefixes[r_name] = folders
+
+            def_role_str = "; ".join(f"{r}: {', '.join(defs.get('role_allowed_prefixes', {}).get(r, []))}" for r in roles_order)
+            _render_rule_default_caption(def_role_str, parsed_role_prefixes != defs.get("role_allowed_prefixes", {}))
+
+            edited_rules[rid] = {
+                "consecutive_failures": pv_fail,
+                "blocked_device_prefixes": list(pv_blocked),
+                "role_allowed_prefixes": parsed_role_prefixes,
+            }
+
+    # 5. new_sensitive_resource
+    if "new_sensitive_resource" in default_meta:
+        rid = "new_sensitive_resource"
+        defs = default_meta[rid]["thresholds"]
+        cur = current_rules[rid]
+        with st.container(border=True):
+            h_left, h_right = st.columns([4, 1])
+            with h_left:
+                render_html(
+                    f'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+                    f'<span style="font-size:17px;font-weight:700;color:#111111;">{default_meta[rid]["name"]}</span>'
+                    f'{render_severity_chip(default_meta[rid]["severity"])}</div>'
+                    f'<div style="font-size:13px;color:#4B5563;margin:4px 0 10px 0;">{rule_descriptions[rid]}</div>'
+                )
+            with h_right:
+                st.button("Reset to default", key=f"reset_{org_id}_{rid}", on_click=_reset_rule_to_default, args=(rid,), use_container_width=True)
+
+            def_levels = list(defs.get("sensitive_levels", ["high", "critical"]))
+            cur_levels = list(cur.get("sensitive_levels", def_levels))
+            nsr_levels = st.multiselect(
+                "Monitored sensitivity levels",
+                options=["low", "medium", "high", "critical"],
+                default=cur_levels,
+                help="Resource sensitivity tiers that trigger an alert on first-time access by a user.",
+                key=f"rule_{org_id}_nsr_levels",
+            )
+            _render_rule_default_caption(", ".join(def_levels), nsr_levels != def_levels)
+
+            edited_rules[rid] = {
+                "sensitive_levels": list(nsr_levels),
+            }
+
+    # Change summary & validation
+    all_changes: List[str] = []
+    changed_rule_ids: List[str] = []
+    for rid, new_t in edited_rules.items():
+        diffs = _format_rule_diff(rid, current_rules.get(rid, {}), new_t)
+        if diffs:
+            all_changes.extend(diffs)
+            changed_rule_ids.append(rid)
+
+    validation_errors: List[str] = []
+    if "bulk_access" in edited_rules:
+        ba = edited_rules["bulk_access"]
+        if ba["mad_multiplier"] <= 0:
+            validation_errors.append("Bulk Resource Access: Sensitivity multiplier must be greater than 0.")
+        if ba["window_minutes"] < 1 or ba["min_event_count"] < 1:
+            validation_errors.append("Bulk Resource Access: Window minutes and minimum event count must be at least 1.")
+    if "atypical_download" in edited_rules:
+        ad = edited_rules["atypical_download"]
+        if ad["mad_multiplier"] <= 0:
+            validation_errors.append("Atypical Download: Sensitivity multiplier must be greater than 0.")
+        if ad["min_bytes"] <= 0:
+            validation_errors.append("Atypical Download: Minimum download size must be greater than 0 MB.")
+    if "off_hours" in edited_rules:
+        oh = edited_rules["off_hours"]
+        if not (0 <= oh["work_start_hour"] <= 23) or not (0 <= oh["work_end_hour"] <= 23):
+            validation_errors.append("Off-Hours Activity: Work hours must be between 0 and 23.")
+        elif oh["work_start_hour"] >= oh["work_end_hour"]:
+            validation_errors.append("Off-Hours Activity: Workday start hour must be strictly earlier than end hour.")
+    if "policy_violation" in edited_rules:
+        if edited_rules["policy_violation"]["consecutive_failures"] < 1:
+            validation_errors.append("Security Policy Violation: Consecutive failed logins must be at least 1.")
+
+    if all_changes:
+        summary_bullets = "".join(f"<li><code>{c}</code></li>" for c in all_changes)
+        render_html(
+            f'<div style="background:#FFFFFF;border:1px solid #E5E7EB;border-radius:12px;padding:12px 16px;margin:8px 0;">'
+            f'<div style="font-size:13px;font-weight:700;color:#111111;margin-bottom:4px;">Pending Changes ({len(all_changes)})</div>'
+            f'<ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;">{summary_bullets}</ul></div>'
+        )
+    else:
+        st.caption("No unsaved threshold changes.")
 
     justification_rule = st.text_input(
         "Administrative Justification for Rule Modification:",
         placeholder="E.g., Lowering bulk_access threshold per Q4 threat model review.",
+        key=f"rule_justification_{org_id}",
     )
 
-    edited_yaml = st.text_area(
-        "YAML Configuration Content:",
-        value=current_yaml_text,
-        height=380,
-    )
-
-    if st.button("Save & Apply Rule Changes", type="primary"):
-        # Server-side check inside button handler
+    if st.button("Save changes", type="primary", key=f"save_rules_form_btn_{org_id}"):
         allowed, err = check_permission(active_role, "edit_rules")
         if not allowed:
             st.error(f"Action Blocked: {err}")
+            return
+
+        if validation_errors:
+            for v_err in validation_errors:
+                st.error(v_err)
+            return
+
+        if not changed_rule_ids:
+            st.info("No threshold changes detected to save.")
             return
 
         if not justification_rule.strip():
             st.error("Justification cannot be blank. Administrative updates must be accounted for.")
             return
 
-        try:
-            parsed = yaml.safe_load(edited_yaml)
-            if not isinstance(parsed, dict) or "rules" not in parsed:
-                st.error("Invalid YAML structure: Root must contain a 'rules' list.")
+        for rid in changed_rule_ids:
+            save_org_rule(org_id, rid, edited_rules[rid], role=active_role)
+
+        log_org_audit_event(
+            org_id=org_id,
+            user_id=user_id,
+            action="UPDATE_RULES",
+            target=f"org_rules:{org_id}",
+            justification=justification_rule.strip(),
+        )
+        notify_toast("Organization rules updated and audited.")
+        st.rerun()
+
+    # 5. Advanced YAML editor expander
+    with st.expander("Advanced: edit as YAML"):
+        current_yaml_text = (
+            yaml.dump({"rules": [{"rule_id": k, "thresholds": v} for k, v in org_rules.items()]}, sort_keys=False)
+            if org_rules
+            else raw_default_yaml
+        )
+        edited_yaml = st.text_area(
+            "YAML Configuration Content:",
+            value=current_yaml_text,
+            height=340,
+            key=f"rule_yaml_editor_{org_id}",
+        )
+        if st.button("Save & Apply YAML Changes", type="secondary", key=f"save_rules_yaml_btn_{org_id}"):
+            allowed, err = check_permission(active_role, "edit_rules")
+            if not allowed:
+                st.error(f"Action Blocked: {err}")
                 return
 
-            for r in parsed.get("rules", []):
-                save_org_rule(org_id, r["rule_id"], r.get("thresholds", {}), role=active_role)
+            if not justification_rule.strip():
+                st.error("Justification cannot be blank. Administrative updates must be accounted for.")
+                return
 
-            log_org_audit_event(
-                org_id=org_id,
-                user_id=user_id,
-                action="UPDATE_RULES",
-                target=f"org_rules:{org_id}",
-                justification=justification_rule.strip(),
-            )
-            notify_toast("Organization rules updated and audited.")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Failed to parse YAML: {e}")
+            try:
+                parsed = yaml.safe_load(edited_yaml)
+                if not isinstance(parsed, dict) or "rules" not in parsed:
+                    st.error("Invalid YAML structure: Root must contain a 'rules' list.")
+                    return
+
+                for r in parsed.get("rules", []):
+                    save_org_rule(org_id, r["rule_id"], r.get("thresholds", {}), role=active_role)
+
+                log_org_audit_event(
+                    org_id=org_id,
+                    user_id=user_id,
+                    action="UPDATE_RULES",
+                    target=f"org_rules:{org_id}",
+                    justification=justification_rule.strip(),
+                )
+                notify_toast("Organization rules updated and audited.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to parse YAML: {e}")
 
 
 def _format_live_event_summary(row: pd.Series) -> str:
@@ -2195,6 +2810,9 @@ def main():
 
     # Client-side idle monitor (runs at background interval without touching session)
     render_idle_monitor(cookie_ctrl)
+
+    # Always land with the sidebar expanded (Streamlit otherwise restores a collapsed state)
+    open_sidebar_on_load()
 
     # Super-Admin Console Gate: Super-admins have NO organization pages and cannot access tenant data
     if logged_user.get("is_super_admin"):

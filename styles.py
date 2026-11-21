@@ -147,11 +147,16 @@ def get_custom_css(is_superadmin: bool = False) -> str:
     }}
     header[data-testid="stHeader"] {{
         background: transparent !important;
-        height: 0px !important;
+        height: auto !important;
         min-height: 0px !important;
+        overflow: visible !important;
         border: none !important;
         visibility: visible !important;
         display: flex !important;
+        pointer-events: none !important;
+    }}
+    header[data-testid="stHeader"] * {{
+        pointer-events: auto !important;
     }}
     header [data-testid="stToolbar"] {{
         visibility: visible !important;
@@ -168,13 +173,10 @@ def get_custom_css(is_superadmin: bool = False) -> str:
         padding: 0px !important;
     }}
     [data-testid="stSidebarCollapseButton"],
-    [data-testid="stSidebarCollapseButton"] *,
     [data-testid="stExpandSidebarButton"],
-    [data-testid="stExpandSidebarButton"] *,
     button[aria-label="Collapse sidebar"],
     button[aria-label="Expand sidebar"] {{
         visibility: visible !important;
-        display: inline-flex !important;
         opacity: 1 !important;
     }}
 
@@ -491,6 +493,7 @@ def get_custom_css(is_superadmin: bool = False) -> str:
 
     .stApp:has(#login-form-marker) [data-testid="stSidebar"],
     .stApp:has(#login-form-marker) [data-testid="stSidebarCollapsedControl"],
+    .stApp:has(#login-form-marker) [data-testid="stExpandSidebarButton"],
     .stApp:has(#login-form-marker) header,
     .stApp:has(#login-form-marker) footer,
     .stApp:has(#login-form-marker) #MainMenu,
@@ -1153,38 +1156,11 @@ def get_custom_css(is_superadmin: bool = False) -> str:
     }}
 
     /* Sidebar Brand Header: expanded vs collapsed */
-    [data-testid="stSidebar"][aria-expanded="false"] .sidebar-header-expanded {{
+    [data-testid="stSidebar"][data-collapsed="true"] .sidebar-header-expanded {{
         display: none !important;
     }}
-    [data-testid="stSidebar"][aria-expanded="false"] .sidebar-header-collapsed {{
+    [data-testid="stSidebar"][data-collapsed="true"] .sidebar-header-collapsed {{
         display: flex !important;
-    }}
-    /* Collapsed sidebar control button at top-left */
-    [data-testid="stSidebarCollapsedControl"] {{
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        z-index: 1000 !important;
-    }}
-    [data-testid="stSidebarCollapsedControl"] button {{
-        background-color: #111111 !important;
-        border: 1px solid #27272A !important;
-        border-radius: 8px !important;
-        padding: 4px 8px !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        gap: 6px !important;
-        color: #FFFFFF !important;
-    }}
-    [data-testid="stSidebarCollapsedControl"] button::before {{
-        content: '';
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        background-image: url('{icon_white_uri}');
-        background-size: contain;
-        background-repeat: no-repeat;
-        background-position: center;
     }}
 
     .sidebar-brand-container {{
@@ -1318,6 +1294,256 @@ def get_custom_css(is_superadmin: bool = False) -> str:
         background-color: #2C2C2E !important;
         color: #FFFFFF !important;
         border-color: #4A4A4C !important;
+    }}
+
+    /* ========================================================================= */
+    /* MINI ICON RAIL & SIDEBAR NAVIGATION ICONS                                 */
+    /* ========================================================================= */
+
+    /* Smooth sidebar width/transform transitions */
+    [data-testid="stSidebar"] {{
+        transition: width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease,
+                    margin-left 0.25s ease, transform 0.25s ease !important;
+    }}
+    [data-testid="stMain"] {{
+        min-width: 0 !important;
+        transition: margin-left 0.25s ease, width 0.25s ease !important;
+    }}
+
+    /* Navigation Icons via ::before (shown in BOTH expanded & mini states) */
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"] {{
+        gap: 10px !important;
+    }}
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"]::before {{
+        content: "";
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        opacity: 0.78;
+        transition: opacity 0.15s ease;
+    }}
+    [data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"]:hover::before,
+    [data-testid="stSidebar"] div[role="radiogroup"] div[data-selected="true"] label[data-testid="stRadioOption"]::before {{
+        opacity: 1;
+    }}
+
+    /* 1. Alert Queue (inbox/bell) */
+    [data-testid="stSidebar"] .st-key-sidebar_nav div[role="radiogroup"] > div:nth-child(1) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'/%3E%3Cpath d='M13.73 21a2 2 0 0 1-3.46 0'/%3E%3C/svg%3E");
+    }}
+    /* 2. Alert Detail (file-search) */
+    [data-testid="stSidebar"] .st-key-sidebar_nav div[role="radiogroup"] > div:nth-child(2) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Ccircle cx='11.5' cy='14.5' r='2.5'/%3E%3Cpath d='M13.3 16.3 15 18'/%3E%3C/svg%3E");
+    }}
+    /* 3. Live Events (activity/pulse) */
+    [data-testid="stSidebar"] .st-key-sidebar_nav div[role="radiogroup"] > div:nth-child(3) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 18 12 15 21 9 3 6 12 2 12'/%3E%3C/svg%3E");
+    }}
+    /* 4. Upload Logs (upload) */
+    [data-testid="stSidebar"] .st-key-sidebar_nav div[role="radiogroup"] > div:nth-child(4) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='17 8 12 3 7 8'/%3E%3Cline x1='12' y1='3' x2='12' y2='15'/%3E%3C/svg%3E");
+    }}
+    /* 5. Rules (sliders) */
+    [data-testid="stSidebar"] .st-key-sidebar_nav div[role="radiogroup"] > div:nth-child(5) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='4' y1='21' x2='4' y2='14'/%3E%3Cline x1='4' y1='10' x2='4' y2='3'/%3E%3Cline x1='12' y1='21' x2='12' y2='12'/%3E%3Cline x1='12' y1='8' x2='12' y2='3'/%3E%3Cline x1='20' y1='21' x2='20' y2='16'/%3E%3Cline x1='20' y1='12' x2='20' y2='3'/%3E%3Cline x1='1' y1='14' x2='7' y2='14'/%3E%3Cline x1='9' y1='8' x2='15' y2='8'/%3E%3Cline x1='17' y1='16' x2='23' y2='16'/%3E%3C/svg%3E");
+    }}
+    /* 6. Staff (users) */
+    [data-testid="stSidebar"] .st-key-sidebar_nav div[role="radiogroup"] > div:nth-child(6) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+    }}
+    /* 7. Audit Trail (history/scroll) */
+    [data-testid="stSidebar"] .st-key-sidebar_nav div[role="radiogroup"] > div:nth-child(7) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/%3E%3Cpath d='M3 3v5h5'/%3E%3Cpath d='M12 7v5l4 2'/%3E%3C/svg%3E");
+    }}
+
+
+    /* Super-admin nav icons: Organizations, Users, Platform Audit Trail */
+    [data-testid="stSidebar"] .st-key-sa_nav div[role="radiogroup"] > div:nth-child(1) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='2' width='16' height='20' rx='2'/%3E%3Cpath d='M9 22v-4h6v4'/%3E%3Cpath d='M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01'/%3E%3C/svg%3E");
+    }}
+    [data-testid="stSidebar"] .st-key-sa_nav div[role="radiogroup"] > div:nth-child(2) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+    }}
+    [data-testid="stSidebar"] .st-key-sa_nav div[role="radiogroup"] > div:nth-child(3) label[data-testid="stRadioOption"]::before {{
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/%3E%3Cpath d='M3 3v5h5'/%3E%3Cpath d='M12 7v5l4 2'/%3E%3C/svg%3E");
+    }}
+
+    /* Desktop-only mini icon rail (<=768px keeps Streamlit's default mobile overlay) */
+    @media (min-width: 769px) {{
+        /* Keep collapsed sidebar pinned at 72px instead of sliding off-screen */
+        [data-testid="stSidebar"][data-collapsed="true"] {{
+            width: 72px !important;
+            min-width: 72px !important;
+            max-width: 72px !important;
+            transform: none !important;
+            margin-left: 0px !important;
+            visibility: visible !important;
+            overflow-x: hidden !important;
+            background-color: #111111 !important;
+            border-right: 1px solid #1F1F23 !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] > div,
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stSidebarContent"],
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stSidebarUserContent"] {{
+            width: 72px !important;
+            min-width: 72px !important;
+            background-color: #111111 !important;
+        }}
+        /* Streamlit reserves scrollbar gutters + side padding that would squeeze a 72px rail */
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stSidebarContent"] {{
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            scrollbar-gutter: auto !important;
+            overflow-x: hidden !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stSidebarHeader"] {{
+            display: none !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stSidebarResizeHandle"] {{
+            display: none !important;
+        }}
+        /* Streamlit stacks the sidebar above the header; lift the header so the expand button stays clickable */
+        .stApp:not(:has(#login-form-marker)) header[data-testid="stHeader"] {{
+            z-index: 999995 !important;
+        }}
+        /* Radio group fills the rail width so icons center properly */
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stElementContainer"],
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stRadio"],
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"],
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"] > div {{
+            width: 100% !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"] div[data-selected="true"] label[data-testid="stRadioOption"] {{
+            border-left: none !important;
+            box-shadow: inset 3px 0 0 #FFFFFF !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"] label[data-testid="stRadioOption"]::before {{
+            width: 20px !important;
+            height: 20px !important;
+        }}
+
+        /* Leave room at top of rail for the expand toggle button */
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stSidebarUserContent"] {{
+            padding: 56px 8px 12px 8px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 100vh !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stSidebarUserContent"] > div > [data-testid="stVerticalBlock"] {{
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+            min-height: calc(100vh - 64px) !important;
+        }}
+
+        /* Place the expand button at the top of the 72px rail, never clipped by stHeader */
+        .stApp:not(:has(#login-form-marker)) [data-testid="stExpandSidebarButton"],
+        .stApp:not(:has(#login-form-marker)) [data-testid="stSidebarCollapsedControl"] {{
+            position: fixed !important;
+            top: 10px !important;
+            left: 18px !important;
+            z-index: 999999 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }}
+        .stApp:not(:has(#login-form-marker)) button[data-testid="stExpandSidebarButton"],
+        .stApp:not(:has(#login-form-marker)) [data-testid="stSidebarCollapsedControl"] button {{
+            width: 36px !important;
+            height: 36px !important;
+            padding: 0 !important;
+            background-color: #1C1C1E !important;
+            border: 1px solid #27272A !important;
+            border-radius: 8px !important;
+            color: #FFFFFF !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }}
+        .stApp:not(:has(#login-form-marker)) [data-testid="stExpandSidebarButton"] svg,
+        .stApp:not(:has(#login-form-marker)) [data-testid="stExpandSidebarButton"] *,
+        .stApp:not(:has(#login-form-marker)) [data-testid="stSidebarCollapsedControl"] svg {{
+            fill: #FFFFFF !important;
+            stroke: #FFFFFF !important;
+            color: #FFFFFF !important;
+        }}
+
+        /* Compact HuliCAP icon logo inside rail */
+        [data-testid="stSidebar"][data-collapsed="true"] .sidebar-brand-wrapper {{
+            padding: 0 0 10px 0 !important;
+            margin-bottom: 6px !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] .sidebar-header-collapsed img {{
+            width: 36px !important;
+            height: 36px !important;
+        }}
+
+        /* Hide section headers (INVESTIGATION / MANAGEMENT) in mini mode */
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"] > div:nth-child(1)::before,
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"] > div:nth-child(4)::before {{
+            display: none !important;
+            content: none !important;
+        }}
+
+        /* Center radio icons and hide text labels in mini mode */
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"] label[data-testid="stRadioOption"] {{
+            justify-content: center !important;
+            padding: 10px 0 !important;
+            gap: 0 !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] div[role="radiogroup"] label[data-testid="stRadioOption"] > div {{
+            display: none !important;
+        }}
+
+        /* Hide Org Info Card & User Profile Card (all sidebar markdown blocks except brand header) */
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"]):not(:has(.sidebar-brand-wrapper)) {{
+            display: none !important;
+        }}
+
+        /* Pin Log Out button to bottom as an icon-only button */
+        [data-testid="stSidebar"][data-collapsed="true"] [data-testid="stElementContainer"]:has(.stButton) {{
+            margin-top: auto !important;
+            display: flex !important;
+            justify-content: center !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] .stButton {{
+            width: 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] .stButton > button {{
+            width: 40px !important;
+            min-width: 40px !important;
+            height: 40px !important;
+            min-height: 40px !important;
+            padding: 0 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 10px !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] .stButton > button > div,
+        [data-testid="stSidebar"][data-collapsed="true"] .stButton > button p,
+        [data-testid="stSidebar"][data-collapsed="true"] .stButton > button span {{
+            display: none !important;
+        }}
+        [data-testid="stSidebar"][data-collapsed="true"] .stButton > button::before {{
+            content: "";
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
+        }}
     }}
 
     /* Mobile Responsive Optimizations */
