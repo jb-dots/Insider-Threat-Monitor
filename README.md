@@ -2,6 +2,43 @@
 
 # HuliCAP Insider Threat Monitor
 
+## Project layout
+
+```
+app.py                  Streamlit dashboard (entry point)
+hulicap/                Core package
+  config.py               Platform limits (events per upload, staff seats)
+  session_config.py       Session lifetime and idle timeout values
+  db.py                   SQLite/SQLAlchemy models and queries
+  detector.py             Five detection rules, median/MAD baselines
+  collector.py            Live collector (company portal JSONL, Windows Event Log)
+  generate_logs.py        Synthetic log generator + ground truth
+  evaluate.py             Precision/recall against ground_truth.csv
+  evaluate_live.py        Per-scenario evaluation against the portal's ground truth
+  create_superadmin.py    Create or update the platform super-admin
+  styles.py, logo_assets.py   UI styling and logo helpers
+tests/                  Test scripts
+tools/                  Development helpers (not part of the app)
+  screenshots/            Playwright screenshot scripts
+  logo/                   Logo file generation
+  verify/                 Playwright UI checks
+rules.yaml              Default detection thresholds
+collector_config.yaml   Collector settings
+logs.csv, ground_truth.csv   Synthetic demo data
+```
+
+## Run (always from the project root)
+
+```powershell
+venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app.py --server.port 8502
+python -m hulicap.collector          # separate terminal
+python -m hulicap.evaluate_live      # after running simulator scenarios
+python -m hulicap.generate_logs      # regenerate logs.csv / ground_truth.csv
+python -m hulicap.create_superadmin  # needs SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD
+```
+
 ## Enable auditing
 
 Run the following commands in an **elevated (Administrator) PowerShell** on this Windows machine to enable local logon auditing (Event IDs 4624/4625) and object access auditing (Event ID 4663) for the test folder `C:\HuliCAP_TestData`.
@@ -47,9 +84,9 @@ Configure `org_id` in `collector_config.yaml`, then run in an **Administrator Po
 
 ```powershell
 # Dry run: read the last 50 Security events, print normalized JSON, and do not write to the DB
-.\venv\Scripts\python.exe collector.py --once
+.\venv\Scripts\python.exe -m hulicap.collector --once
 
 # Continuous polling (every 5 seconds, persists last RecordId in the database)
-.\venv\Scripts\python.exe collector.py
+.\venv\Scripts\python.exe -m hulicap.collector
 ```
 

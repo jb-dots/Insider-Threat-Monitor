@@ -18,9 +18,9 @@ import streamlit as st
 from streamlit_cookies_controller import CookieController
 import yaml
 
-from config import MAX_EVENTS_PER_UPLOAD, MAX_STAFF_SEATS
-from session_config import COOKIE_NAME, IDLE_WARN_SECONDS, IDLE_LOGOUT_SECONDS, SESSION_LIFETIME_HOURS
-from db import (
+from hulicap.config import MAX_EVENTS_PER_UPLOAD, MAX_STAFF_SEATS
+from hulicap.session_config import COOKIE_NAME, IDLE_WARN_SECONDS, IDLE_LOGOUT_SECONDS, SESSION_LIFETIME_HOURS
+from hulicap.db import (
     accept_invite_code,
     add_or_invite_staff,
     authenticate_user,
@@ -72,9 +72,9 @@ from db import (
     DbSession,
     User,
 )
-from detector import run_detection_pipeline
+from hulicap.detector import run_detection_pipeline
 
-from styles import (
+from hulicap.styles import (
     clean_html,
     inject_styles,
     render_html,
@@ -99,7 +99,7 @@ from styles import (
     BRAND_NEAR_BLACK,
     BRAND_DARK_SURFACE,
 )
-from logo_assets import (
+from hulicap.logo_assets import (
     get_logo_black_uri,
     get_icon_white_uri,
     get_logo_white_uri,
@@ -560,7 +560,7 @@ def render_alert_detail(
     )
 
     if not alerts:
-        st.info("No alerts found in the database. Run detector.py to generate alerts.")
+        st.info("No alerts found in the database. Run `python -m hulicap.detector` to generate alerts.")
         return
 
     status_order = {"new": 0, "escalated": 1, "reviewed": 2, "dismissed": 3}
@@ -1607,7 +1607,7 @@ def render_live_events_page(org_id: str):
     def _render_live_body():
         if auto_refresh or manual_sync:
             try:
-                from collector import collect_company_portal_once, load_collector_config
+                from hulicap.collector import collect_company_portal_once, load_collector_config
                 c_cfg = load_collector_config()
                 org_portal_url = get_org_portal_url(org_id) or c_cfg.get("company_portal_url", "")
                 if c_cfg.get("enable_company_portal") and (org_portal_url or c_cfg["company_portal_log_path"].exists()):
@@ -1646,7 +1646,7 @@ def render_live_events_page(org_id: str):
         if df_live.empty:
             st.info(
                 "No live activity recorded yet for this organization. "
-                "Start `collector.py` as Administrator to begin streaming events."
+                "Start `python -m hulicap.collector` as Administrator to begin streaming events."
             )
             return
 
@@ -2435,7 +2435,7 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
 
                         if choice == "demo":
                             with st.spinner("Generating synthetic demo logs and running threat detector..."):
-                                from generate_logs import build_user_directory, generate_normal_logs, inject_scenarios
+                                from hulicap.generate_logs import build_user_directory, generate_normal_logs, inject_scenarios
                                 normal_df = generate_normal_logs(days=30)
                                 users_dir = build_user_directory()
                                 injected_df, _ = inject_scenarios(users_dir)
@@ -2455,7 +2455,7 @@ def render_setup_page(logged_user: Dict, org_context: Optional[Dict] = None):
                                 save_org_alerts(alerts, target_org_id)
                         elif choice == "portal":
                             with st.spinner("Connecting company portal audit log and running initial detection..."):
-                                from collector import collect_company_portal_once, load_collector_config
+                                from hulicap.collector import collect_company_portal_once, load_collector_config
                                 cfg = load_collector_config()
                                 raw_url = (portal_url_input or "").strip()
                                 if raw_url and not raw_url.startswith(("http://", "https://")):
@@ -2729,7 +2729,7 @@ def _bootstrap_superadmin() -> bool:
     """Create or update super-admin once on startup when SUPERADMIN_EMAIL/PASSWORD env vars are set."""
     if os.environ.get("SUPERADMIN_EMAIL") and os.environ.get("SUPERADMIN_PASSWORD"):
         try:
-            from create_superadmin import create_or_update_superadmin
+            from hulicap.create_superadmin import create_or_update_superadmin
             create_or_update_superadmin()
         except Exception as exc:
             print(f"[WARN] Superadmin bootstrap skipped: {exc}")

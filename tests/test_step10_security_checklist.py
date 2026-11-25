@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from db import (
+from hulicap.db import (
     Alert,
     Event,
     Membership,

@@ -1,13 +1,16 @@
 """Unit tests for Windows Event Log collector normalization, deduplication, and DB ingestion."""
 
 import os
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
 
-import db
-from collector import FileAccessDeduplicator, is_system_account, normalize, parse_event_xml
-from detector import pseudonymize_user
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from hulicap import db
+from hulicap.collector import FileAccessDeduplicator, is_system_account, normalize, parse_event_xml
+from hulicap.detector import pseudonymize_user
 
 
 def _make_event_xml(event_id: int, record_id: int, system_time: str, data_fields: dict) -> str:

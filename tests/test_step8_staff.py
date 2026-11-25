@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import sys
 import uuid
 
-from db import (
+from hulicap.db import (
     accept_invite_code,
     add_or_invite_staff,
     cancel_pending_invite,

@@ -10,7 +10,7 @@ import subprocess
 import sys
 import uuid
 
-from db import (
+from hulicap.db import (
     authenticate_user,
     check_permission,
     create_organization,
@@ -55,7 +55,7 @@ def run_tests():
     env["SUPERADMIN_NAME"] = superadmin_name
 
     proc = subprocess.run(
-        [sys.executable, "create_superadmin.py"],
+        [sys.executable, "-m", "hulicap.create_superadmin"],
         env=env,
         capture_output=True,
         text=True,

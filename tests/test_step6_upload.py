@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from datetime import datetime
 import pandas as pd
-from db import (
+from hulicap.db import (
     Alert,
     Event,
     Organization,
@@ -21,7 +21,7 @@ from db import (
     save_org_alerts,
     save_org_events,
 )
-from detector import run_detection_pipeline
+from hulicap.detector import run_detection_pipeline
 
 REQUIRED_COLUMNS = [
     "event_id",
@@ -48,22 +48,22 @@ def run_tests():
     print("\n[TEST 1] Setting up Organization A and Organization B...")
     user_a, _ = register_user("Org Admin A", "admin_a@alpha.com", "PasswordAlpha123!")
     if not user_a:
-        from db import authenticate_user
+        from hulicap.db import authenticate_user
         user_a, _ = authenticate_user("admin_a@alpha.com", "PasswordAlpha123!")
     org_a, _ = create_organization("Alpha Sentinel Corp", "Defense & Aerospace", "standard", user_a["user_id"])
     if not org_a:
-        from db import get_active_org_context
+        from hulicap.db import get_active_org_context
         org_a, _ = get_active_org_context(user_a["user_id"])
     org_a_id = org_a["org_id"]
     org_a_salt = org_a["org_salt"]
 
     user_b, _ = register_user("Org Admin B", "admin_b@beta.com", "PasswordBeta123!")
     if not user_b:
-        from db import authenticate_user
+        from hulicap.db import authenticate_user
         user_b, _ = authenticate_user("admin_b@beta.com", "PasswordBeta123!")
     org_b, _ = create_organization("Beta Dynamics Ltd", "Retail & Commerce", "free", user_b["user_id"])
     if not org_b:
-        from db import get_active_org_context
+        from hulicap.db import get_active_org_context
         org_b, _ = get_active_org_context(user_b["user_id"])
     org_b_id = org_b["org_id"]
 
@@ -116,7 +116,7 @@ def run_tests():
     print("\n[TEST 6] Executing detection engine for Organization A...")
     # Pre-pseudonymize dataframe for detector to match stored events
     analysis_df = demo_df.copy()
-    from db import pseudonymize_user_with_salt
+    from hulicap.db import pseudonymize_user_with_salt
     analysis_df["user_id"] = analysis_df["user_id"].apply(lambda uid: pseudonymize_user_with_salt(uid, org_a_salt))
 
     alerts_a = run_detection_pipeline(analysis_df, org_id=org_a_id)

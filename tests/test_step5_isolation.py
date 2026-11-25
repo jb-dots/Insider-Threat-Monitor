@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 
 from datetime import datetime
-from db import (
+from hulicap.db import (
     Alert,
     Organization,
     create_organization,
@@ -29,7 +29,7 @@ def run_tests():
     print("\n[TEST 1] Creating User A & Organization A (Acme Corp)...")
     user_a, _ = register_user("Alice Admin", "alice_admin@acme.com", "PasswordAcme123!")
     if not user_a:
-        from db import authenticate_user
+        from hulicap.db import authenticate_user
         user_a, _ = authenticate_user("alice_admin@acme.com", "PasswordAcme123!")
     user_a_id = user_a["user_id"]
 
@@ -45,7 +45,7 @@ def run_tests():
     print("\n[TEST 2] Creating User B & Organization B (Globex Industries)...")
     user_b, _ = register_user("Bob Director", "bob_admin@globex.com", "PasswordGlobex123!")
     if not user_b:
-        from db import authenticate_user
+        from hulicap.db import authenticate_user
         user_b, _ = authenticate_user("bob_admin@globex.com", "PasswordGlobex123!")
     user_b_id = user_b["user_id"]
 

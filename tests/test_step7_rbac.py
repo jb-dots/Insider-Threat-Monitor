@@ -10,7 +10,7 @@ import sys
 import uuid
 import pandas as pd
 
-from db import (
+from hulicap.db import (
     ROLE_PERMISSIONS,
     check_permission,
     create_organization,

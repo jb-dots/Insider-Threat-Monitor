@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 
 from pathlib import Path
-from db import (
+from hulicap.db import (
     GuidelineAcceptance,
     get_available_plans,
     get_session,
@@ -51,7 +51,7 @@ def run_tests():
     print("\n[TEST 3] Creating new user for onboarding flow...")
     user, err = register_user("David Compliance", "david@enterprise.com", "Password456!")
     if err and "already exists" in err:
-        from db import authenticate_user
+        from hulicap.db import authenticate_user
         user, _ = authenticate_user("david@enterprise.com", "Password456!")
     assert user is not None
     user_id = user["user_id"]
