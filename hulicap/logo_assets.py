@@ -12,7 +12,7 @@ from pathlib import Path
 import base64
 import functools
 
-ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 
 @functools.lru_cache(maxsize=16)
 def _read_b64(filename: str) -> str:

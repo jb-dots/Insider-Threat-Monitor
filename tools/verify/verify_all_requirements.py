@@ -3,7 +3,9 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-from db import (
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[2]))  # project root, so "hulicap" imports work
+from hulicap.db import (
     create_user_session,
     get_session,
     log_session_timeout_audit_event,
@@ -13,7 +15,7 @@ from db import (
     PlatformAuditLog,
     User,
 )
-from session_config import COOKIE_NAME, IDLE_LOGOUT_SECONDS, IDLE_WARN_SECONDS
+from hulicap.session_config import COOKIE_NAME, IDLE_LOGOUT_SECONDS, IDLE_WARN_SECONDS
 
 SCREENSHOTS_DIR = os.path.abspath("screenshots")
 DESKTOP_SHOTS_DIR = os.path.join(SCREENSHOTS_DIR, "desktop")

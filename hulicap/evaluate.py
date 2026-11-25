@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 import pandas as pd
 
-from db import get_all_alerts
+from hulicap.db import get_all_alerts
 
 
 def evaluate_detector(

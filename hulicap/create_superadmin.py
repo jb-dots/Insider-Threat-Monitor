@@ -8,7 +8,7 @@ import sys
 import uuid
 from datetime import datetime
 
-from db import User, get_session, hash_password, init_db
+from hulicap.db import User, get_session, hash_password, init_db
 
 
 def create_or_update_superadmin():

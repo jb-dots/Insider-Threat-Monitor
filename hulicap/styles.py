@@ -57,7 +57,7 @@ CHIP_PALETTES: Dict[str, Dict[str, str]] = {
 @functools.lru_cache(maxsize=4)
 def get_custom_css(is_superadmin: bool = False) -> str:
     """Generate the unified CSS stylesheet for HuliCAP."""
-    from logo_assets import get_icon_white_uri
+    from hulicap.logo_assets import get_icon_white_uri
     icon_white_uri = get_icon_white_uri()
     brand_primary = COLOR_TEAL_ACCENT if is_superadmin else COLOR_PRIMARY
     brand_hover = COLOR_TEAL_HOVER if is_superadmin else COLOR_PRIMARY_HOVER
@@ -1684,7 +1684,7 @@ def render_sidebar_header(is_superadmin: bool = False) -> None:
     
     Shows logo_white.png when expanded, and icon_white.png when collapsed.
     """
-    from logo_assets import get_logo_white_uri, get_icon_white_uri
+    from hulicap.logo_assets import get_logo_white_uri, get_icon_white_uri
     logo_white_uri = get_logo_white_uri()
     icon_white_uri = get_icon_white_uri()
     badge_html = render_platform_badge() if is_superadmin else ""

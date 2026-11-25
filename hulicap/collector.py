@@ -14,7 +14,7 @@ import uuid
 import xml.etree.ElementTree as ET
 import yaml
 
-from db import (
+from hulicap.db import (
     filter_new_alerts,
     get_last_record_id,
     get_org_events_df,
@@ -30,7 +30,7 @@ from db import (
     save_org_alerts,
     set_last_record_id,
 )
-from detector import run_detection_pipeline
+from hulicap.detector import run_detection_pipeline
 
 CONFIG_PATH = Path("collector_config.yaml")
 EVENT_NS = {"e": "http://schemas.microsoft.com/win/2004/08/events/event"}
@@ -602,7 +602,7 @@ def run_poll_loop(cfg: Dict[str, Any]) -> None:
             "Waiting for an organization to complete setup..."
         )
         explicit_env_org = bool(os.environ.get("COLLECTOR_ORG_ID"))
-        from db import Organization, get_session
+        from hulicap.db import Organization, get_session
         while not org_salt:
             time.sleep(poll_interval)
             org_salt = get_org_salt(org_id)
@@ -700,7 +700,7 @@ def main() -> None:
     cfg = load_collector_config()
     if cfg.get("enable_windows_event_log") and not is_admin():
         print(
-            "ERROR: enable_windows_event_log is true, so collector.py must be run as Administrator.\n"
+            "ERROR: enable_windows_event_log is true, so the collector (python -m hulicap.collector) must be run as Administrator.\n"
             "Please open an elevated PowerShell/Command Prompt (Run as administrator) and try again,\n"
             "or set enable_windows_event_log: false in collector_config.yaml."
         )

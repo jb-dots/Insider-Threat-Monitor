@@ -6,8 +6,8 @@ import sys
 from typing import Any, Dict, List, Set
 import pandas as pd
 
-from collector import load_collector_config
-from db import Event, get_all_alerts, get_org_salt, get_session, init_db, pseudonymize_user_with_salt
+from hulicap.collector import load_collector_config
+from hulicap.db import Event, get_all_alerts, get_org_salt, get_session, init_db, pseudonymize_user_with_salt
 
 
 def get_portal_event_ids(org_id: str) -> Set[str]:

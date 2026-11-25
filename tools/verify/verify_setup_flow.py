@@ -7,7 +7,9 @@ import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-from db import get_session, Organization, AuditLog, get_org_alerts
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[2]))  # project root, so "hulicap" imports work
+from hulicap.db import get_session, Organization, AuditLog, get_org_alerts
 
 OUT_DIR = Path("setup_screenshots")
 OUT_DIR.mkdir(exist_ok=True)

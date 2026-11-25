@@ -31,7 +31,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker, Session
 
-from config import MAX_STAFF_SEATS
+from hulicap.config import MAX_STAFF_SEATS
 
 # 1. Database Connection Configuration
 DEFAULT_DB_URL = "sqlite:///monitor.db"

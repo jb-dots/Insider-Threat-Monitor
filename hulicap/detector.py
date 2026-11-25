@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from db import clear_alerts, init_db, save_alerts
+from hulicap.db import clear_alerts, init_db, save_alerts
 
 
 def load_rules(rules_path: str = "rules.yaml") -> Dict[str, Any]:
